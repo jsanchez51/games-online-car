@@ -335,7 +335,7 @@
       let enemyFlashClock = 0;
       let enemyTargetX = 0;
       let enemyLaneTimer = 0;
-      let altEnemyModel = null; // segundo modelo de auto (Buggy)
+      let altEnemyModel = null; // segundo modelo de auto (procedural)
       let carBaseY = 0.5;
       let carHalfWidth = 1.0;
       let isGameOver = false;
@@ -461,14 +461,9 @@
         const hideAd = () => { adEl.style.display = 'none'; };
         adClose.addEventListener('click', hideAd);
         adHide.addEventListener('click', hideAd);
-        // Mostrar anuncio 5s después de iniciar el juego
-        const observer = new MutationObserver(() => {
-          if (gameActive) {
-            setTimeout(showAd, 5000);
-            observer.disconnect();
-          }
-        });
-        observer.observe(document.body, { attributes: false, childList: false, subtree: false });
+        // Mostrar anuncio 5s después de iniciar el juego (sin MutationObserver)
+        const showAdWhenStarted = () => { setTimeout(showAd, 5000); };
+        window.addEventListener('game-started', showAdWhenStarted, { once: true });
       }
 
       function onWindowResize() {
@@ -898,21 +893,38 @@
           }
         );
 
-        // Cargar modelo alternativo (Buggy) para usarlo a veces como enemigo
-        loader.load(
-          'https://threejs.org/examples/models/gltf/Buggy/glTF/Buggy.gltf',
-          (gltf) => {
-            altEnemyModel = gltf.scene;
-            altEnemyModel.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-            altEnemyModel.scale.setScalar(0.7);
-            altEnemyModel.rotation.y = Math.PI;
-          },
-          undefined,
-          () => {
-            // Si falla, no es crítico; seguirá usando el clon del jugador
-            altEnemyModel = null;
-          }
+        // Crear modelo alternativo sencillo (procedural) si falla carga externa
+        altEnemyModel = createProceduralEnemy();
+      }
+
+      function createProceduralEnemy() {
+        const g = new THREE.Group();
+        const body = new THREE.Mesh(
+          new THREE.BoxGeometry(1.8, 0.6, 3.2),
+          new THREE.MeshStandardMaterial({ color: 0x335577, metalness: 0.2, roughness: 0.8 })
         );
+        body.position.y = 0.5;
+        body.castShadow = true; body.receiveShadow = true;
+        const top = new THREE.Mesh(
+          new THREE.BoxGeometry(1.2, 0.4, 1.4),
+          new THREE.MeshStandardMaterial({ color: 0x223344, metalness: 0.2, roughness: 0.8 })
+        );
+        top.position.y = 0.95;
+        const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.4, 16);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+        const wheels = [];
+        const wheelPos = [
+          [-0.8, 0.3, -1.2], [0.8, 0.3, -1.2],
+          [-0.8, 0.3, 1.2], [0.8, 0.3, 1.2]
+        ];
+        for (const [x, y, z] of wheelPos) {
+          const w = new THREE.Mesh(wheelGeo, wheelMat);
+          w.rotation.z = Math.PI/2; w.position.set(x, y, z);
+          w.castShadow = true; w.receiveShadow = true;
+          wheels.push(w); g.add(w);
+        }
+        g.add(body, top);
+        return g;
       }
 
       function placeEnemyAtStart() {
@@ -1007,6 +1019,7 @@
           applyPlayerColor(selectedColor);
           prestartEl.style.display = 'none';
           gameActive = true; // arrancar después de elegir color
+          window.dispatchEvent(new Event('game-started'));
         });
       }
 
