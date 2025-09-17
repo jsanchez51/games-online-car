@@ -235,11 +235,29 @@
         }
       }
     </script>
+
+    <!-- Configuración embebida para evitar 404 en producción (sin fetch externo) -->
+    <script id="app-config" type="application/json">
+      {
+        "bannerHtml": "Descubre más proyectos y juegos increíbles. <strong>Haz clic en Ver más</strong>.",
+        "bannerUrl": "https://example.com/",
+        "performance": {
+          "pixelRatioMobile": 1.25,
+          "shadowMapMobile": 1024
+        }
+      }
+    </script>
+    <script>
+      (function(){
+        try { window.__APP_CONFIG__ = JSON.parse(document.getElementById('app-config').textContent || '{}'); }
+        catch(e){ window.__APP_CONFIG__ = {}; }
+      })();
+    </script>
   </head>
   <body>
     <div id="container"></div>
     <div id="loading">Cargando...</div>
-    <div id="ui"><span id="score">Score: 0</span></div>
+    <div id="ui"><span id="score">Score: 0</span> · <span id="version" title="Versión de despliegue"></span></div>
     <div id="gameover">GAME OVER!</div>
 
     <div class="controls" aria-hidden="false">
@@ -283,8 +301,8 @@
       import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
       // ----- Constantes de juego -----
-      const BANNER_HTML = 'Descubre más proyectos y juegos increíbles. <strong>Haz clic en Ver más</strong>.'; // Personaliza el texto del anuncio
-      const BANNER_URL = 'https://example.com/'; // Cambia a tu enlace
+      const BANNER_HTML = (window.__APP_CONFIG__ && window.__APP_CONFIG__.bannerHtml) || 'Descubre más proyectos y juegos increíbles. <strong>Haz clic en Ver más</strong>.';
+      const BANNER_URL = (window.__APP_CONFIG__ && window.__APP_CONFIG__.bannerUrl) || 'https://example.com/';
       const roadWidth = 10;
       const roadLength = 200;
       const kerbWidth = 0.3;
@@ -332,6 +350,7 @@
       const loadingEl = document.getElementById('loading');
       const scoreEl = document.getElementById('score');
       const gameoverEl = document.getElementById('gameover');
+      const versionEl = document.getElementById('version');
       const prestartEl = document.getElementById('prestart');
 
       let playerCar = null;
@@ -397,6 +416,13 @@
       init();
       updateOrientationFactor();
       animate();
+
+      // Mostrar versión de despliegue si existe ENV_VAR inyectada por Vercel
+      (function setVersion() {
+        const v = (typeof process !== 'undefined' && process.env && process.env.NEXT_PUBLIC_APP_VERSION) ||
+                  (typeof window !== 'undefined' && window.__APP_VERSION__);
+        if (versionEl) versionEl.textContent = v ? `v${v}` : '';
+      })();
 
       function init() {
         // Escena
