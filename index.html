@@ -293,6 +293,8 @@
       const baseEnemyCarSpeed = 0.4; let enemyCarSpeed = baseEnemyCarSpeed;
       const baseEnemyLaneSpeed = 0.12; let enemyLaneSpeed = baseEnemyLaneSpeed;
       const laneSnapSpeed = 0.2; // velocidad de alineado a carril
+      const orientationSpeedBias = 1.0; // multiplicador base (se recalcula)
+      let orientationFactor = 1.0;
       const buildingSpacing = 15;
       const lightSpacing = 20;
       const numPoints = 15;
@@ -360,6 +362,10 @@
       const barriers = [];
       const oils = [];
       const potholes = [];
+      // Audio
+      let audioCtx; let gainMaster;
+      let motorOsc; let motorGain; let motorRunning = false;
+      let coinBuffer = null; let crashBuffer = null;
 
       // Controles
       let moveLeft = false;
@@ -380,6 +386,7 @@
           prestartEl.style.display = 'flex';
           const btn = document.getElementById('restartBtn');
           if (btn) btn.disabled = false;
+          setupAudio();
         }, 500);
       };
       manager.onError = (url) => {
@@ -387,6 +394,7 @@
       };
 
       init();
+      updateOrientationFactor();
       animate();
 
       function init() {
@@ -473,6 +481,14 @@
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        updateOrientationFactor();
+      }
+
+      function updateOrientationFactor() {
+        const aspect = window.innerWidth / window.innerHeight;
+        // Si es vertical (aspect < 1), aumentar ligeramente la velocidad para compensar percepción
+        // Limitar para no causar mareo en móviles muy altos
+        orientationFactor = aspect < 1 ? 1.15 : 1.0;
       }
 
       // ----- Entorno: suelo y carretera -----
@@ -1022,6 +1038,7 @@
           prestartEl.style.display = 'none';
           gameActive = true; // arrancar después de elegir color
           window.dispatchEvent(new Event('game-started'));
+          startMotor();
         });
       }
 
@@ -1237,6 +1254,7 @@
             coinsCollected += 1;
             scoreEl.textContent = `Score: ${score}`;
             updateSpeedByCoins();
+            playCoin();
           }
         }
       }
@@ -1245,15 +1263,99 @@
       function updateSpeedByCoins() {
         const level = Math.floor(coinsCollected / 100); // 100 monedas por nivel
         const factor = Math.min(1 + level * 0.08, 1.8);
-        driveSpeed = baseDriveSpeed * factor;
+        driveSpeed = baseDriveSpeed * factor * orientationFactor;
         carMoveSpeed = baseCarMoveSpeed * Math.min(1 + level * 0.05, 1.5);
-        enemyCarSpeed = baseEnemyCarSpeed * factor;
+        enemyCarSpeed = baseEnemyCarSpeed * factor * orientationFactor;
         enemyLaneSpeed = baseEnemyLaneSpeed * Math.min(1 + level * 0.03, 1.4);
       }
 
       function gameOver() {
         isGameOver = true;
         gameoverEl.style.display = 'flex';
+        stopMotor();
+        playCrash();
+      }
+
+      // ----- Audio -----
+      function setupAudio() {
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          audioCtx = new AudioContext();
+          gainMaster = audioCtx.createGain();
+          gainMaster.gain.value = 0.3; // volumen global
+          gainMaster.connect(audioCtx.destination);
+          // Buffers simples generados (coin/crash)
+          generateCoinBuffer();
+          generateCrashBuffer();
+        } catch (e) {
+          console.warn('Audio no disponible', e);
+        }
+      }
+
+      function startMotor() {
+        if (!audioCtx || motorRunning) return;
+        motorOsc = audioCtx.createOscillator();
+        motorGain = audioCtx.createGain();
+        motorOsc.type = 'sawtooth';
+        motorOsc.frequency.value = 120; // base
+        motorGain.gain.value = 0.05;
+        motorOsc.connect(motorGain);
+        motorGain.connect(gainMaster);
+        motorOsc.start();
+        motorRunning = true;
+      }
+
+      function stopMotor() {
+        if (!motorRunning) return;
+        try { motorOsc.stop(); } catch {}
+        motorGain.disconnect();
+        motorOsc.disconnect();
+        motorRunning = false;
+      }
+
+      function playCoin() {
+        if (!audioCtx || !coinBuffer) return;
+        const src = audioCtx.createBufferSource();
+        src.buffer = coinBuffer;
+        const g = audioCtx.createGain(); g.gain.value = 0.15;
+        src.connect(g); g.connect(gainMaster);
+        src.start();
+      }
+
+      function playCrash() {
+        if (!audioCtx || !crashBuffer) return;
+        const src = audioCtx.createBufferSource();
+        src.buffer = crashBuffer;
+        const g = audioCtx.createGain(); g.gain.value = 0.25;
+        src.connect(g); g.connect(gainMaster);
+        src.start();
+      }
+
+      function generateCoinBuffer() {
+        const duration = 0.12;
+        const rate = audioCtx.sampleRate;
+        const frames = rate * duration;
+        const buffer = audioCtx.createBuffer(1, frames, rate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < frames; i++) {
+          const t = i / rate;
+          data[i] = Math.sin(2 * Math.PI * (800 + 800*t) * t) * Math.exp(-10 * t);
+        }
+        coinBuffer = buffer;
+      }
+
+      function generateCrashBuffer() {
+        const duration = 0.4;
+        const rate = audioCtx.sampleRate;
+        const frames = rate * duration;
+        const buffer = audioCtx.createBuffer(1, frames, rate);
+        const data = buffer.getChannelData(0);
+        // ruido con decaimiento
+        for (let i = 0; i < frames; i++) {
+          const t = i / rate;
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-6 * t);
+        }
+        crashBuffer = buffer;
       }
 
       function restartGame() {
@@ -1296,6 +1398,7 @@
 
         // Camera
         camera.position.x = 0;
+        startMotor();
       }
     </script>
   </body>
