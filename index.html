@@ -292,6 +292,7 @@
       const baseCarMoveSpeed = 0.15; let carMoveSpeed = baseCarMoveSpeed;
       const baseEnemyCarSpeed = 0.4; let enemyCarSpeed = baseEnemyCarSpeed;
       const baseEnemyLaneSpeed = 0.12; let enemyLaneSpeed = baseEnemyLaneSpeed;
+      const playerScale = 0.65; // tamaño más pequeño del coche del jugador
       const laneSnapSpeed = 0.2; // velocidad de alineado a carril
       const orientationSpeedBias = 1.0; // multiplicador base (se recalcula)
       let orientationFactor = 1.0;
@@ -404,9 +405,10 @@
         scene.fog = new THREE.Fog(0xa0d7e6, roadLength * 0.4, roadLength * 0.9);
 
         // Renderer
+        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.25 : 2));
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -423,7 +425,7 @@
         const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
         dirLight.position.set(10, 20, 10);
         dirLight.castShadow = true;
-        dirLight.shadow.mapSize.set(2048, 2048);
+        dirLight.shadow.mapSize.set(isMobile ? 1024 : 2048, isMobile ? 1024 : 2048);
         const d = 50;
         dirLight.shadow.camera.left = -d;
         dirLight.shadow.camera.right = d;
@@ -480,7 +482,8 @@
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.25 : 2));
         updateOrientationFactor();
       }
 
@@ -834,6 +837,7 @@
             carBaseY = -bbox.min.y * 0.8; // ajusta leve para no hundirse
 
             playerCar = new THREE.Group();
+            carRoot.scale.setScalar(playerScale); // más pequeño
             carRoot.position.y = carBaseY;
             carRoot.position.x = 0;
             playerCar.add(carRoot);
@@ -887,6 +891,7 @@
             box.castShadow = true; box.receiveShadow = true;
             carBaseY = 0.51; carHalfWidth = 1.0;
             playerCar = new THREE.Group();
+            box.scale.setScalar(playerScale);
             box.position.y = carBaseY;
             playerCar.add(box);
             scene.add(playerCar);
