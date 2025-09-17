@@ -5,11 +5,13 @@
   "builds": [
     { "src": "index.html", "use": "@vercel/static" },
     { "src": "robots.txt", "use": "@vercel/static" },
-    { "src": "sitemap.xml", "use": "@vercel/static" }
+    { "src": "sitemap.xml", "use": "@vercel/static" },
+    { "src": "ads.txt", "use": "@vercel/static" }
   ],
   "routes": [
     { "src": "/robots.txt", "dest": "/robots.txt" },
     { "src": "/sitemap.xml", "dest": "/sitemap.xml" },
+    { "src": "/ads.txt", "dest": "/ads.txt" },
     { "src": "/(.*)", "dest": "/index.html" }
   ],
   "env": {
