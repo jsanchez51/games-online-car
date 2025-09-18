@@ -1,5 +1,5 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://your-domain.vercel.app/sitemap.xml
+Sitemap: https://games-online-car.vercel.app/sitemap.xml
 
